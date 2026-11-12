@@ -6,22 +6,7 @@ document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.datase
 const esc = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateKey = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const today = dateKey(new Date());
-const shiftDay = n => {const d=new Date(today+'T12:00:00');d.setDate(d.getDate()+n);return dateKey(d);};
-function readJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback;}catch{return fallback;}}
-const initial=readJSON('campus-events-v1',null);
-let demo=initial===null;
-let events=initial||[
-{id:'sample-1',title:'국제정치경제론',category:'Class',date:today,time:'10:00',memo:'국제관 301호 · 세미나 리딩 준비',completed:false},
-{id:'sample-2',title:'국제개발협력 팀 미팅',category:'Team Project',date:today,time:'14:00',memo:'중앙도서관 스터디룸 · 발표 역할 분담',completed:false},
-{id:'sample-3',title:'선행연구 논문 읽기',category:'Research',date:today,time:'16:30',memo:'동아시아 지역협력 관련 논문 2편',completed:false},
-{id:'sample-4',title:'정책분석 보고서 제출',category:'Assignment',date:shiftDay(2),time:'23:59',memo:'국제개발협력론 · 최종 검토 후 제출',completed:false},
-{id:'sample-5',title:'논문 연구계획서 초안 작성',category:'Research',date:shiftDay(4),time:'',memo:'연구 질문과 방법론 정리',completed:false},
-{id:'sample-6',title:'발표자료 최종 점검',category:'Team Project',date:shiftDay(5),time:'15:00',memo:'팀원들과 발표 리허설',completed:false},
-{id:'sample-7',title:'친구와 저녁 약속',category:'Personal',date:shiftDay(1),time:'18:30',memo:'부산대 앞에서 만나기',completed:false},
-{id:'sample-8',title:'국제통상 세미나',category:'Class',date:shiftDay(-2),time:'13:00',memo:'세미나 참석',completed:true},
-{id:'sample-9',title:'개발경제학 리딩노트',category:'Assignment',date:shiftDay(-1),time:'',memo:'제출 완료',completed:true},
-{id:'sample-10',title:'지도교수님 연구 면담',category:'Research',date:shiftDay(8),time:'11:00',memo:'연구실 · 연구 주제 논의',completed:false},
-{id:'sample-11',title:'국제정치경제론',category:'Class',date:shiftDay(7),time:'10:00',memo:'국제관 301호',completed:false}];
+let events=[];
 let viewDate=new Date(today+'T12:00:00'),view='dashboard',filter='all',calendarMode='month',editingId=null,busy=false;
 const defaultGoogleConfig={clientId:'85680299111-qgih23g1lkdnl4j6j4ccaldkou6jbnok.apps.googleusercontent.com',sheetId:'1XtM8ijovR1laOJBH4maGxG3gIHireHPMOg9HzRL7Tm8'};
 let config={...defaultGoogleConfig},token=null,connected=false,tokenExpiry=0;
@@ -32,10 +17,9 @@ const daysTo=date=>Math.round((new Date(date+'T12:00:00')-new Date(today+'T12:00
 function dueLabel(date){const n=daysTo(date);return n===0?'오늘':n<0?`${-n}일 지남`:n<=7?`D-${n}`:`${Number(date.slice(5,7))}.${Number(date.slice(8))}`;}
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('show'),3500);}
 function askConfirmation(message){return new Promise(resolve=>{const dialog=$('#confirm-dialog');$('#confirm-message').textContent=message;let accepted=false;$('#confirm-accept').onclick=()=>{accepted=true;dialog.close();};$('#confirm-cancel').onclick=()=>dialog.close();dialog.onclose=()=>resolve(accepted);dialog.showModal();});}
-function saveLocal(){if(connected)return;try{localStorage.setItem('campus-events-v1',JSON.stringify(events));demo=false;}catch{toast('기기 저장 공간을 확인해 주세요.');}}
 function render(){
- $('#demo-notice').classList.toggle('hidden',!demo||connected);
- $('#storage-status').innerHTML=`<i></i> ${connected?'Google Sheets 연결됨':'이 기기에 저장됨'}`;
+ $('#demo-notice').classList.toggle('hidden',connected);
+ $('#storage-status').innerHTML=`<i></i> ${connected?'Google Sheets 연결됨':'Google 연결 필요'}`;
  const pending=events.filter(e=>!e.completed), todays=events.filter(e=>e.date===today), upcoming=pending.filter(e=>daysTo(e.date)>=0&&daysTo(e.date)<=7&&e.category!=='Class'&&e.category!=='Personal'),done=events.filter(e=>e.completed).length;
  const statItems=[['오늘의 일정',todays.length,'개','나의 하루를 차근차근','calendar','#edf3ea','#7d9b72'],['7일 내 할 일',upcoming.length,'개','놓치지 말아야 할 계획','clock','#fcf1e8','#d1a17e'],['미완료 할 일',pending.length,'개','한 가지씩, 나의 속도로','file','#f1eef6','#a294b1'],['완료한 일정',done,'개',`전체 일정의 <b>${events.length?Math.round(done/events.length*100):0}%</b> 완료했어요`,'check','#edf3ed','#82a080']];
  $('#stats').innerHTML=statItems.map(([label,num,unit,detail,ic,bg,col])=>`<article class="stat"><span class="stat-icon" style="--stat-bg:${bg};--stat-color:${col}">${icon(ic)}</span><div class="stat-label">${label}</div><div class="stat-number">${num}<small>${unit}</small></div><div class="stat-detail">${detail}</div></article>`).join('');
@@ -71,28 +55,70 @@ $('#today-button').onclick=()=>{viewDate=new Date(today+'T12:00:00');renderCalen
 $('#month-view').onclick=()=>{calendarMode='month';renderCalendar();};$('#list-view').onclick=()=>{calendarMode='list';renderCalendar();};
 $('#search').oninput=renderTasks;$('#status-filter').onchange=renderTasks;
 $('#event-category').innerHTML=Object.entries(categories).map(([key,c])=>`<option value="${key}">${c.label}</option>`).join('');
-function openEvent(date,id){if(busy){toast('저장이 끝날 때까지 잠시 기다려 주세요.');return;}editingId=id||null;const f=$('#event-form');f.reset();const ev=id?events.find(e=>e.id===id):null;if(id&&!ev)return;f.elements.title.value=ev?.title||'';f.elements.category.value=ev?.category||'Class';f.elements.date.value=ev?.date||date||today;f.elements.time.value=ev?.time||'';f.elements.memo.value=ev?.memo||'';f.elements.completed.checked=ev?.completed||false;$('#form-title').textContent=id?'일정 수정하기':'새 일정 만들기';$('#delete-event').classList.toggle('hidden',!id);$('#event-dialog').showModal();}
+function openEvent(date,id){if(!connected){openSettings();return;}if(busy){toast('저장이 끝날 때까지 잠시 기다려 주세요.');return;}editingId=id||null;const f=$('#event-form');f.reset();const ev=id?events.find(e=>e.id===id):null;if(id&&!ev)return;f.elements.title.value=ev?.title||'';f.elements.category.value=ev?.category||'Class';f.elements.date.value=ev?.date||date||today;f.elements.time.value=ev?.time||'';f.elements.memo.value=ev?.memo||'';f.elements.completed.checked=ev?.completed||false;$('#form-title').textContent=id?'일정 수정하기':'새 일정 만들기';$('#delete-event').classList.toggle('hidden',!id);$('#event-dialog').showModal();}
 $('#add-event').onclick=()=>openEvent(today);$('#today-add').onclick=()=>openEvent(today);
 document.querySelectorAll('.close-dialog').forEach(b=>b.onclick=()=>$('#event-dialog').close());
 function setBusy(value){busy=value;$('#save-event').disabled=value;$('#delete-event').disabled=value;$('#save-event').textContent=value?'저장 중…':'일정 저장';}
-async function commit(next,operation){if(busy)return false;setBusy(true);try{if(connected)await operation();events=next;saveLocal();render();return true;}catch(err){toast(err.message||'저장하지 못했어요. 다시 시도해 주세요.');return false;}finally{setBusy(false);}}
+async function commit(next,operation){if(!connected){openSettings();return false;}if(busy)return false;setBusy(true);try{await operation();events=next;render();return true;}catch(err){toast(err.message||'저장하지 못했어요. 다시 시도해 주세요.');return false;}finally{setBusy(false);}}
 $('#event-form').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;const ev={id:editingId||crypto.randomUUID(),title:f.elements.title.value.trim(),category:f.elements.category.value,date:f.elements.date.value,time:f.elements.time.value,memo:f.elements.memo.value.trim(),completed:f.elements.completed.checked};if(!ev.title){f.elements.title.setCustomValidity('일정 제목을 입력해 주세요.');f.elements.title.reportValidity();return;}const editing=!!editingId;const next=editing?events.map(x=>x.id===ev.id?ev:x):[...events,ev];if(await commit(next,()=>writeEvent(ev,editing))){$('#event-dialog').close();toast(editing?'일정을 수정했어요.':'새 일정을 저장했어요.');}};
 $('#event-form').elements.title.oninput=e=>e.target.setCustomValidity('');
 async function toggleEvent(id){const ev=events.find(e=>e.id===id);if(!ev)return;const changed={...ev,completed:!ev.completed};if(await commit(events.map(x=>x.id===id?changed:x),()=>writeEvent(changed,true)))toast(changed.completed?'한 가지를 해냈네요. 수고했어요!':'미완료로 변경했어요.');}
 $('#delete-event').onclick=async()=>{if(!editingId||!await askConfirmation('이 일정을 삭제할까요?'))return;const id=editingId;if(await commit(events.filter(e=>e.id!==id),()=>removeEvent(id))){$('#event-dialog').close();toast('일정을 삭제했어요.');}};
-$('#clear-demo').onclick=async()=>{if(!await askConfirmation('샘플 일정을 모두 지우고 빈 플래너로 시작할까요?'))return;events=[];saveLocal();render();toast('나만의 첫 일정을 등록해 보세요.');};
-function openSettings(){$('#settings-form').elements.clientId.value=config.clientId||'';$('#settings-form').elements.sheetId.value=config.sheetId||'';$('#origin-text').textContent=location.origin;$('#connection-error').textContent='';$('#disconnect').classList.toggle('hidden',!connected);$('#settings-dialog').showModal();}
+$('#clear-demo').onclick=()=>openSettings();
+function openSettings(){$('#settings-form').elements.clientId.value=config.clientId||'';$('#settings-form').elements.sheetId.value=config.sheetId||'';$('#origin-text').textContent=location.origin;$('#connection-error').textContent='';$('#disconnect').classList.toggle('hidden',!connected);if(!$('#settings-dialog').open)$('#settings-dialog').showModal();}
 $('#settings-button').onclick=openSettings;$('#connection-shortcut').onclick=openSettings;$('#close-settings').onclick=()=>$('#settings-dialog').close();
 let gisPromise;
 function loadGIS(){if(window.google?.accounts?.oauth2)return Promise.resolve();if(!gisPromise)gisPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.onload=()=>resolve();script.onerror=()=>{gisPromise=null;script.remove();reject(new Error('Google 연결 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'));};document.head.append(script);});return gisPromise;}
 function authorize(clientId){return new Promise((resolve,reject)=>{const client=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:'https://www.googleapis.com/auth/spreadsheets',callback:r=>{if(r.error)return reject(new Error('Google 접근 권한이 허용되지 않았어요.'));if(!google.accounts.oauth2.hasGrantedAllScopes(r,'https://www.googleapis.com/auth/spreadsheets'))return reject(new Error('구글시트 읽기·쓰기 권한을 허용해 주세요.'));resolve(r);},error_callback:()=>reject(new Error('연결 창이 닫혔거나 차단되었어요. 다시 눌러 주세요.'))});client.requestAccessToken({prompt:''});});}
-async function sheetsRequest(path,options={}){if(!token||Date.now()>=tokenExpiry)throw new Error('Google 연결이 만료됐어요. 연결 설정에서 다시 연결해 주세요.');const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(config.sheetId)}${path}`,{...options,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...options.headers}});if(!r.ok){let msg='';try{msg=(await r.json()).error?.message||'';}catch{}if(r.status===401){tokenExpiry=0;throw new Error('Google 연결이 만료됐어요. 다시 연결해 주세요.');}throw new Error(`구글시트 요청 실패 (${r.status}). ${msg}`);}return r.status===204?{}:r.json();}
+async function sheetsRequest(path,options={}){if(!token||Date.now()>=tokenExpiry)throw new Error('Google 연결이 만료됐어요. 연결 설정에서 다시 연결해 주세요.');const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(config.sheetId)}${path}`,{...options,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...options.headers}});if(!r.ok){let msg='';try{msg=(await r.json()).error?.message||'';}catch{}if(r.status===401){tokenExpiry=0;forgetSession();throw new Error('Google 연결이 만료됐어요. 다시 연결해 주세요.');}throw new Error(`구글시트 요청 실패 (${r.status}). ${msg}`);}return r.status===204?{}:r.json();}
 async function readSheet(){const result=await sheetsRequest('/values/Events!A1:G');const rows=result.values||[];const expected=['id','title','category','date','time','memo','completed'];if(!expected.every((v,i)=>String(rows[0]?.[i]||'').trim()===v))throw new Error('Events 탭의 첫 행을 id, title, category, date, time, memo, completed 순서로 확인해 주세요.');return rows;}
 function parseRows(rows){const seen=new Set();return rows.slice(1).map((r,i)=>{if(!r.some(v=>v!==''))return null;if(!r[0]||!r[1]||!/^\d{4}-\d{2}-\d{2}$/.test(String(r[3])))throw new Error(`${i+2}행의 id, title, date(YYYY-MM-DD)를 확인해 주세요.`);if(!categories[r[2]])throw new Error(`${i+2}행 category는 Class, Assignment, Research, Team Project, Personal 중 하나여야 합니다.`);if(seen.has(String(r[0])))throw new Error(`${i+2}행의 id가 중복돼 있어요. 고유한 id로 수정해 주세요.`);seen.add(String(r[0]));return {id:String(r[0]),title:String(r[1]),category:String(r[2]),date:String(r[3]),time:String(r[4]||''),memo:String(r[5]||''),completed:String(r[6]).toLowerCase()==='true'};}).filter(Boolean);}
 const valuesFor=e=>[e.id,e.title,e.category,e.date,e.time,e.memo,e.completed];
 async function rowFor(id){const rows=await readSheet();const index=rows.findIndex((r,i)=>i>0&&String(r[0])===id);if(index<1)throw new Error('시트에서 일정을 찾지 못했어요. 다시 연결해 최신 일정을 불러와 주세요.');return index+1;}
 async function writeEvent(e,editing){if(editing){const row=await rowFor(e.id);await sheetsRequest(`/values/Events!A${row}:G${row}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[valuesFor(e)]})});}else{await sheetsRequest('/values/Events!A:G:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',body:JSON.stringify({values:[valuesFor(e)]})});}}
 async function removeEvent(id){const row=await rowFor(id);await sheetsRequest(`/values/Events!A${row}:G${row}:clear`,{method:'POST',body:'{}'});}
-$('#settings-form').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget;let sheetId=f.elements.sheetId.value.trim();const match=sheetId.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);if(match)sheetId=match[1];const clientId=f.elements.clientId.value.trim();if(!clientId.endsWith('.apps.googleusercontent.com')||!/^[a-zA-Z0-9_-]+$/.test(sheetId)){$('#connection-error').textContent='클라이언트 ID와 스프레드시트 ID를 확인해 주세요.';return;}const previous={config,token,tokenExpiry,connected};$('#connect-button').disabled=true;$('#connect-button').textContent='연결 중…';$('#connection-error').textContent='';try{await loadGIS();const auth=await authorize(clientId);config={clientId,sheetId};token=auth.access_token;tokenExpiry=Date.now()+Number(auth.expires_in)*1000;const loaded=parseRows(await readSheet());events=loaded;connected=true;localStorage.setItem('campus-google-config',JSON.stringify(config));render();$('#settings-dialog').close();toast('구글시트의 일정을 불러왔어요.');}catch(err){config=previous.config;token=previous.token;tokenExpiry=previous.tokenExpiry;connected=previous.connected;$('#connection-error').textContent=err.message;}finally{$('#connect-button').disabled=false;$('#connect-button').textContent='저장하고 Google 연결';}};
-$('#disconnect').onclick=async()=>{if(!await askConfirmation('구글시트 연결을 해제할까요? 이 기기에 저장한 일정으로 돌아갑니다.'))return;if(token&&window.google?.accounts?.oauth2)google.accounts.oauth2.revoke(token,()=>{});token=null;tokenExpiry=0;connected=false;events=readJSON('campus-events-v1',[]);demo=false;render();$('#settings-dialog').close();toast('연결을 해제했어요.');};
-render();
+const sessionKey='campus-google-session-v1';
+function rememberSession(){try{sessionStorage.setItem(sessionKey,JSON.stringify({config,token,tokenExpiry}));}catch{}}
+function forgetSession(){try{sessionStorage.removeItem(sessionKey);}catch{}}
+async function connectSheet(nextConfig){
+ const previous={config,token,tokenExpiry,connected};
+ $('#connect-button').disabled=true;$('#connect-button').textContent='연결 중…';$('#connection-error').textContent='';
+ try{
+  // GIS is preloaded so the account popup starts within the button click.
+  if(!window.google?.accounts?.oauth2)throw new Error('Google 연결 도구를 준비 중이에요. 잠시 후 다시 눌러 주세요.');
+  const auth=await authorize(nextConfig.clientId);
+  config=nextConfig;token=auth.access_token;tokenExpiry=Date.now()+Number(auth.expires_in)*1000;
+  const loaded=parseRows(await readSheet());events=loaded;connected=true;rememberSession();
+  render();$('#settings-dialog').close();toast('내 구글시트의 일정을 불러왔어요.');
+ }catch(err){
+  ({config,token,tokenExpiry,connected}=previous);$('#connection-error').textContent=err.message;
+ }finally{$('#connect-button').disabled=false;$('#connect-button').textContent='Google 연결하고 내 일정 보기';}
+}
+$('#settings-form').onsubmit=e=>{
+ e.preventDefault();const f=e.currentTarget;let sheetId=f.elements.sheetId.value.trim();
+ const match=sheetId.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);if(match)sheetId=match[1];
+ const clientId=f.elements.clientId.value.trim();
+ if(!clientId.endsWith('.apps.googleusercontent.com')||!/^[a-zA-Z0-9_-]+$/.test(sheetId)){$('#connection-error').textContent='클라이언트 ID와 스프레드시트 ID를 확인해 주세요.';return;}
+ connectSheet({clientId,sheetId});
+};
+$('#disconnect').onclick=async()=>{
+ if(!await askConfirmation('구글시트 연결을 해제할까요? 시트의 일정은 그대로 보관됩니다.'))return;
+ if(token&&window.google?.accounts?.oauth2)google.accounts.oauth2.revoke(token,()=>{});
+ token=null;tokenExpiry=0;connected=false;events=[];forgetSession();render();$('#settings-dialog').close();toast('연결을 해제했어요.');
+};
+async function startPlanner(){
+ render();
+ const gisReady=loadGIS();gisReady.catch(()=>{});
+ let saved=null;try{saved=JSON.parse(sessionStorage.getItem(sessionKey));}catch{}
+ if(saved?.config?.clientId===config.clientId&&saved?.config?.sheetId===config.sheetId&&typeof saved.token==='string'&&saved.token&&saved.tokenExpiry>Date.now()+30000){
+  token=saved.token;tokenExpiry=saved.tokenExpiry;
+  $('#storage-status').textContent='내 구글시트 불러오는 중…';
+  try{events=parseRows(await readSheet());connected=true;render();return;}
+  catch(err){token=null;tokenExpiry=0;forgetSession();render();openSettings();$('#connection-error').textContent=err.message;}
+ }else{forgetSession();openSettings();}
+ $('#connect-button').disabled=true;$('#connect-button').textContent='Google 연결 준비 중…';
+ try{await gisReady;}
+ catch(err){$('#connection-error').textContent=err.message;}
+ finally{$('#connect-button').disabled=false;$('#connect-button').textContent='Google 연결하고 내 일정 보기';}
+}
+startPlanner();
