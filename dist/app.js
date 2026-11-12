@@ -24,12 +24,7 @@ let events=initial||[
 {id:'sample-11',title:'국제정치경제론',category:'Class',date:shiftDay(7),time:'10:00',memo:'국제관 301호',completed:false}];
 let viewDate=new Date(today+'T12:00:00'),view='dashboard',filter='all',calendarMode='month',editingId=null,busy=false;
 const defaultGoogleConfig={clientId:'85680299111-qgih23g1lkdnl4j6j4ccaldkou6jbnok.apps.googleusercontent.com',sheetId:'1XtM8ijovR1laOJBH4maGxG3gIHireHPMOg9HzRL7Tm8'};
-const googleConfigRevision='2026-11-13-1';
-let config=readJSON('campus-google-config',defaultGoogleConfig),token=null,connected=false,tokenExpiry=0;
-if(readJSON('campus-google-config-revision',null)!==googleConfigRevision){
-config={...defaultGoogleConfig};
-try{localStorage.setItem('campus-google-config',JSON.stringify(config));localStorage.setItem('campus-google-config-revision',JSON.stringify(googleConfigRevision));}catch{}
-}
+let config={...defaultGoogleConfig},token=null,connected=false,tokenExpiry=0;
 const catFor=e=>categories[e.category]||categories.Personal;
 const catStyle=c=>`--cat:${c.color};--tint:${c.tint}`;
 const sorted=arr=>[...arr].sort((a,b)=>(a.date+(a.time||'99:99')).localeCompare(b.date+(b.time||'99:99')));
