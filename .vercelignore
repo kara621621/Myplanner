@@ -1,0 +1,4 @@
+campus-lab/
+outputs/
+.openai/
+*.log
